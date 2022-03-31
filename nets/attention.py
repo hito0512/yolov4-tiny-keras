@@ -7,7 +7,8 @@ from keras.layers import (Activation, Add, Concatenate, Conv1D, Conv2D, Dense,
 
 
 def se_block(input_feature, ratio=16, name=""):
-	channel = input_feature._keras_shape[-1]
+	# channel = input_feature._keras_shape[-1]
+	channel = input_feature.shape[-1]
 
 	se_feature = GlobalAveragePooling2D()(input_feature)
 	se_feature = Reshape((1, 1, channel))(se_feature)

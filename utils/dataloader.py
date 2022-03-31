@@ -321,7 +321,7 @@ class YoloDatasets(keras.utils.Sequence):
         #-----------------------------------------------------------#
         #   获得框的坐标和图片的大小
         #-----------------------------------------------------------#
-        true_boxes  = np.array(true_boxes, dtype='float32')
+        true_boxes  = np.array(true_boxes, dtype='float32')  # batch,100, 5
         input_shape = np.array(input_shape, dtype='int32')
         
         #-----------------------------------------------------------#
@@ -343,8 +343,8 @@ class YoloDatasets(keras.utils.Sequence):
         #   通过计算获得真实框的中心和宽高
         #   中心点(m,n,2) 宽高(m,n,2)
         #-----------------------------------------------------------#
-        boxes_xy = (true_boxes[..., 0:2] + true_boxes[..., 2:4]) // 2
-        boxes_wh =  true_boxes[..., 2:4] - true_boxes[..., 0:2]
+        boxes_xy = (true_boxes[..., 0:2] + true_boxes[..., 2:4]) // 2  # batch,100, 2
+        boxes_wh =  true_boxes[..., 2:4] - true_boxes[..., 0:2]        # batch,100, 2
         #-----------------------------------------------------------#
         #   将真实框归一化到小数形式
         #-----------------------------------------------------------#
@@ -361,16 +361,16 @@ class YoloDatasets(keras.utils.Sequence):
         #-----------------------------------------------------------#
         #   长宽要大于0才有效
         #-----------------------------------------------------------#
-        valid_mask = boxes_wh[..., 0]>0
+        valid_mask = boxes_wh[..., 0]>0   # batch,100
 
         for b in range(m):
             #-----------------------------------------------------------#
             #   对每一张图进行处理
             #-----------------------------------------------------------#
-            wh = boxes_wh[b, valid_mask[b]]
+            wh = boxes_wh[b, valid_mask[b]]  # 1,2
             if len(wh) == 0: continue
             #-----------------------------------------------------------#
-            #   [n,2] -> [n,1,2]
+            #   [1,2] -> [1,1,2]
             #-----------------------------------------------------------#
             wh          = np.expand_dims(wh, -2)
             box_maxes   = wh / 2.
@@ -383,31 +383,31 @@ class YoloDatasets(keras.utils.Sequence):
             #   anchor_area     [1,9]
             #   iou             [n,9]
             #-----------------------------------------------------------#
-            intersect_mins  = np.maximum(box_mins, anchor_mins)
-            intersect_maxes = np.minimum(box_maxes, anchor_maxes)
-            intersect_wh    = np.maximum(intersect_maxes - intersect_mins, 0.)
-            intersect_area  = intersect_wh[..., 0] * intersect_wh[..., 1]
+            intersect_mins  = np.maximum(box_mins, anchor_mins)                # 1,6,2
+            intersect_maxes = np.minimum(box_maxes, anchor_maxes)              # 1,6,2
+            intersect_wh    = np.maximum(intersect_maxes - intersect_mins, 0.) # 1,6,2
+            intersect_area  = intersect_wh[..., 0] * intersect_wh[..., 1]      # 1,6
 
-            box_area    = wh[..., 0] * wh[..., 1]
-            anchor_area = anchors[..., 0] * anchors[..., 1]
+            box_area    = wh[..., 0] * wh[..., 1]            # 1,1
+            anchor_area = anchors[..., 0] * anchors[..., 1]  # 1,6
 
-            iou = intersect_area / (box_area + anchor_area - intersect_area)
+            iou = intersect_area / (box_area + anchor_area - intersect_area)  # 1,6
             #-----------------------------------------------------------#
-            #   维度是[n,] 感谢 消尽不死鸟 的提醒
+            #   维度是(1,)
             #-----------------------------------------------------------#
-            best_anchor = np.argmax(iou, axis=-1)
+            best_anchor = np.argmax(iou, axis=-1)   # 返回索引
 
             for t, n in enumerate(best_anchor):
                 #-----------------------------------------------------------#
                 #   找到每个真实框所属的特征层
                 #-----------------------------------------------------------#
                 for l in range(num_layers):
-                    if n in self.anchors_mask[l]:
+                    if n in self.anchors_mask[l]:  # 判断当前最大的索引在哪个anchor头中，anchor一共6个，分为两组
                         #-----------------------------------------------------------#
-                        #   floor用于向下取整，找到真实框所属的特征层对应的x、y轴坐标
+                        #   floor用于向下取整，找到真实框所属的特征层对应的x、y轴坐标  true_boxes：只有第一行有坐标值，所以t为0
                         #-----------------------------------------------------------#
                         i = np.floor(true_boxes[b,t,0] * grid_shapes[l][1]).astype('int32')
-                        j = np.floor(true_boxes[b,t,1] * grid_shapes[l][0]).astype('int32')
+                        j = np.floor(true_boxes[b,t,1] * grid_shapes[l][0]).astype('int32')  # shape的值为hw形式
                         #-----------------------------------------------------------#
                         #   k指的的当前这个特征点的第k个先验框
                         #-----------------------------------------------------------#

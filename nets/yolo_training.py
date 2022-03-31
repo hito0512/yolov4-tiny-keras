@@ -158,7 +158,7 @@ def yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, ignore_thre
         #   以第一个特征层(m,13,13,3,85)为例子
         #   取出该特征层中存在目标的点的位置。(m,13,13,3,1)
         #-----------------------------------------------------------#
-        object_mask = y_true[l][..., 4:5]
+        object_mask = y_true[l][..., 4:5] # (m,13,13,3,1)
         #-----------------------------------------------------------#
         #   取出其对应的种类(m,13,13,3,80)
         #-----------------------------------------------------------#
@@ -194,12 +194,12 @@ def yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, ignore_thre
         #-----------------------------------------------------------#
         def loop_body(b, ignore_mask):
             #-----------------------------------------------------------#
-            #   取出n个真实框：n,4
+            #   取出n个真实框：n,4  y_true[l]:[None, 16, 16, 3, 10]   tf.boolean_mask ： 按照object_mask_bool对y_true进行过滤输出
             #-----------------------------------------------------------#
-            true_box = tf.boolean_mask(y_true[l][b,...,0:4], object_mask_bool[b,...,0])
+            true_box = tf.boolean_mask(y_true[l][b,...,0:4], object_mask_bool[b,...,0])  # object_mask_bool[b,...,0]:16,16,3
             #-----------------------------------------------------------#
             #   计算预测框与真实框的iou
-            #   pred_box    13,13,3,4 预测框的坐标
+            #   pred_box    13,13,3,4 预测框的坐标 ,输出的特征图是13*13，有三个anchor，每个anchor预测xywh4个值
             #   true_box    n,4 真实框的坐标
             #   iou         13,13,3,n 预测框和真实框的iou
             #-----------------------------------------------------------#
@@ -254,8 +254,8 @@ def yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, ignore_thre
         #   不适合当作负样本，所以忽略掉。
         #------------------------------------------------------------------------------#
         confidence_loss = object_mask * K.binary_crossentropy(object_mask, raw_pred[...,4:5], from_logits=True)+ \
-            (1-object_mask) * K.binary_crossentropy(object_mask, raw_pred[...,4:5], from_logits=True) * ignore_mask
-        
+            (1-object_mask) * K.binary_crossentropy(object_mask, raw_pred[...,4:5], from_logits=True) * ignore_mask  
+            # 这里就是除了正样本之外，在剩下负样本中选择与iou阈值低于0.5的作为负样本                                                                                   
         class_loss = object_mask * K.binary_crossentropy(true_class_probs, raw_pred[...,5:], from_logits=True)
 
         location_loss   = K.sum(ciou_loss)
